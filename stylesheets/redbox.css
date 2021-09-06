@@ -1,0 +1,14 @@
+.marked {
+    animation-name: blinking;
+    animation-duration: 2.0s;
+    animation-iteration-count: infinite;
+}
+
+@keyframes blinking {
+    0%{
+        background-color: initial;
+    }
+    100%{
+        background-color: red;
+    }
+}

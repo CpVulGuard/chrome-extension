@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="eng">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link href="./popup.css" rel="stylesheet" id="popup-css">
+</head>
+    <div class="container">
+        <div class="card card-container">
+            <img class="profile-img-card" src="./icons/security_advisor-128x128.png" alt="" />
+            <p id="logInStatus-Notification" class="logInStatus">You are logged in.</p>
+            <form name="loginForm" class="form-signin">
+                <span id="reauth-email" class="reauth-email"></span>
+                <input name="email" type="email" id="inputEmail" class="form-control" placeholder="Email address" required autofocus>
+                <input name="pass" type="password" id="inputPassword" class="form-control" placeholder="Password" required>
+                <button name="submitButton" id="loginSubmitButton" class="btn btn-lg btn-primary btn-block btn-signin" type="submit"> <span class="button_text">Sign in</span></button>
+            </form><!-- /form -->
+            <div class="interaction-wrapper">
+                <a id="forgot-password-link" class="forgot-password">
+                    Forgot your password?
+                </a>
+                <a id="register-link" class="forgot-password">
+                    Register
+                </a>
+            </div>
+            <br>
+            <a id="logOutLink" href="" class="log-out">
+                Log out
+            </a>
+        </div><!-- /card-container -->
+    </div><!-- /container -->
+    <script src="./popup.js"></script><!--calls the script to manage the popup-->
+</html>

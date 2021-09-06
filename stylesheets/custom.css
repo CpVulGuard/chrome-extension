@@ -1,0 +1,208 @@
+.sa_isIcon {
+  background-color: transparent;
+  border-style: hidden;
+  user-select: none;
+}
+.sa_isIcon:hover {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 1em;
+  cursor: pointer;
+}
+
+.sa_marked {
+  animation-name: warning;
+  animation-duration: 2.0s;
+  animation-iteration-count: infinite;
+}
+
+@keyframes warning {
+  0%{
+      background-color: initial;
+  }
+  40%, 60%{
+      background-color: orange;
+  }
+  100%{
+    background-color: initial;
+  }
+}
+
+/*CSS für das beschreibende PopUp*/
+.sa_popUpBody {
+  display: flex;
+  opacity: 0;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  pointer-events: none;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1000;
+
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.sa_popUpBody.sa_show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sa_popUpContent {
+  counter-reset: line;
+  max-width: 100vw;
+  padding: 30px 50px;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  background-color: white;
+  text-align: center;
+
+  max-width: 80vw;
+  max-height: 80vh;
+  overflow: auto;
+  position: relative;
+}
+.sa_popUpContent .sa_discriptionContent{
+  padding: 20px;
+  margin-bottom: 5px;
+  border-radius: 5px;
+  background-color: #f2f2f2;
+  text-align: left;
+}
+.sa_popUpContent .sa_discriptionContent p{
+  margin: 0px;
+}
+.sa_popUpCloseButton {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+}
+.sa_popUpCloseButton:hover {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: .5rem;
+}
+/*Formular im PopUp*/
+.sa_popUpForm {
+  border-radius: 5px;
+  background-color: #f2f2f2;
+}
+.sa_popUpForm div {
+  padding: 20px;
+}
+.sa_popUpForm legend {
+  font-size: 30px;
+}
+.sa_popUpForm span {
+  color: grey;
+}
+.sa_popUpForm button {
+  width: 90%;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  background-color: rgb(232, 232, 34);
+  border: 0;
+  border-radius: 5px;
+  padding: 1em;
+  margin-bottom: 1em;
+  cursor: pointer;
+}
+.sa_popUpForm button:hover {
+  width: 87%;
+  border-radius: 10px;
+  background-color: rgb(201, 201, 35);
+}
+.sa_popUpForm label,
+.sa_popUpForm span {
+  display: flex;
+  justify-content: left;
+}
+.sa_popUpForm input,
+.sa_popUpForm textarea {
+  width: 100%;
+  padding: 12px 20px;
+  margin: 8px 0;
+  display: inline-block;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+/*Formular Ende*/
+/*PopUp Ende*/
+.sa_codeBlockCopy.s-code-block {
+  background-color: #f2f2f2;
+  text-align: left;
+  margin-bottom: 1em;
+  max-height: 20vh;
+  overflow: auto;
+
+  white-space: pre;
+  counter-reset: line;
+}
+.sa_codeBlockCopy.s-code-block code {
+  counter-increment: line;
+}
+.sa_codeBlockCopy.s-code-block code::before {
+  content: counter(line);
+  margin-right: 10px;
+  color: gray;
+  display: inline-block;
+  text-align: right;
+  width: 20px;
+  user-select: none;
+}
+
+/*PopUp-Button*/
+button .sa_successText,
+button .sa_failText,
+button.sa_successStatus .sa_buttonText,
+button.sa_failureStatus .sa_buttonText{
+  display: none;
+}
+button.sa_successStatus{
+  pointer-events: none;
+}
+button .sa_buttonText,
+button.sa_successStatus .sa_successText,
+button.sa_failureStatus .sa_failText{
+  display: flex;
+  color: black;
+  justify-content: center;
+}
+.sa_btn_loading .sa_buttonText,
+.sa_btn_loading .sa_successText,
+.sa_btn_loading .sa_failText{
+    visibility: hidden;
+    opacity: 0;
+}
+
+.sa_btn_loading::after{
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: auto;
+    border: 4px solid transparent;
+    border-top-color: black;
+    border-radius: 50%;
+    animation-name: spinning;
+    animation-duration: 1s;
+    animation-iteration-count: infinite;
+}
+
+@keyframes spinning {
+    from {
+      transform: rotate(0turn);
+    }
+  
+    to {
+      transform: rotate(1turn);
+    }
+  }

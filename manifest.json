@@ -1,0 +1,48 @@
+{
+    "name": "Security Advisor",
+    "description": "This extension let's you report security-vulnerabilities in StackOverflow-code and warns you if other people already reported the code you are looking at.",
+    "version": "0.1.0",
+    "manifest_version": 3,
+    "icons": {
+        "16": "./icons/security_advisor-16x16.png",
+        "32": "./icons/security_advisor-32x32.png",
+        "48": "./icons/security_advisor-48x48.png",
+        "128": "./icons/security_advisor-128x128.png"
+    },
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "icons/security_advisor-32x32.png",
+                "icons/report.png",
+                "icons/option_icon.png",
+                "icons/warning_icon.png",
+                "icons/close_icon.png"
+            ],
+            "matches": [
+                "https://stackoverflow.com/*"
+            ]
+        }
+    ],
+    "background": {
+        "service_worker": "./background.js"
+    },
+    "options_page": "./options.html",
+    "action": {
+        "default_popup": "./popup.html"
+    },
+    "content_security_policy": {
+        "script-src": "self https://ajax.googleapis.com",
+        "object-src": "self"
+    },
+    "permissions": [
+        "tabs",
+        "scripting",
+        "cookies",
+        "webNavigation",
+        "storage"
+    ],
+    "host_permissions": [
+        "https://stackoverflow.com/*",
+        "https://secadvisor.dev/*"
+    ]
+}
