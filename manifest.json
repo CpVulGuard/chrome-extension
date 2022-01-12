@@ -43,6 +43,6 @@
     ],
     "host_permissions": [
         "https://stackoverflow.com/*",
-        "https://secadvisor.dev/*"
+        "https://cpvulguard.it-sec.medien.hs-duesseldorf.de/*"
     ]
 }

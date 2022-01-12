@@ -1,13 +1,12 @@
 let reportedPosts = [];
-let baseURL = "https://secadvisor.dev";
-const bearer = "3|1l8TIlf3CFZud1vZ4ZJxHhdv5NWaHXTXNxHX7WO1";
+let baseURL = "https://cpvulguard.it-sec.medien.hs-duesseldorf.de";
 startForeground();
 
 
 /**
  * Start den Prozess für die Manuipulation der Website
  */
-function startForeground() {
+async function startForeground() {
     var answerCodition = /^answer/;
     var answers = [];
     var elements = document.getElementsByTagName('*');
@@ -23,18 +22,21 @@ function startForeground() {
         let id = answers[index].getAttribute('data-answerid');
         idList.push(id);
     }
-    postData(baseURL + '/check', {"ids":idList})
-        .then(data => {
-            //reportedPosts = data;
-            //Add Interactions
-            for (answerIndex = 0; answerIndex < answers.length; answerIndex++) {
-                let codeBlocks = answers[answerIndex].getElementsByTagName('pre');
-                let id = answers[answerIndex].getAttribute('data-answerid');
-                for (var blockIndex = 0; blockIndex < codeBlocks.length; blockIndex++) {
-                    addIteractionToAnswer(id, codeBlocks[blockIndex], blockIndex);
+    bearer = await getBearer();
+    if(bearer && Object.keys(bearer).length !== 0){
+        postData(baseURL + '/check', {"ids":idList})
+            .then(data => {
+                reportedPosts = data;
+                //Add Interactions
+                for (answerIndex = 0; answerIndex < answers.length; answerIndex++) {
+                    let codeBlocks = answers[answerIndex].getElementsByTagName('pre');
+                    let id = answers[answerIndex].getAttribute('data-answerid');
+                    for (var blockIndex = 0; blockIndex < codeBlocks.length; blockIndex++) {
+                        addIteractionToAnswer(id, codeBlocks[blockIndex], blockIndex);
+                    }
                 }
-            }
         });
+    }
 }
 
 /**
@@ -43,7 +45,7 @@ function startForeground() {
  * @param {Integer} codeBlockIndex 
  * @returns den Eintrag als {reason, soPostId, imported, codeBlockIndex, rows}. Der eintrag ist {} wenn nicht vorhanden.
  */
-function checkPost(soPostId, codeBlockIndex) {
+function checkPost(soPostId) {
     foundReport = {}
     reportedPosts.forEach((post) => {
         if(post.soPostId == soPostId){
@@ -61,7 +63,7 @@ function checkPost(soPostId, codeBlockIndex) {
  * @returns boolean ob ein Report vorliegt
  */
 function isCodeBlockAlreadyReported(soPostId, codeBlockIndex) {
-    report = checkPost(soPostId, codeBlockIndex)
+    const report = checkPost(soPostId);
     return (Object.keys(report).length !== 0);
 }
 
@@ -80,21 +82,24 @@ function addIteractionToAnswer(soPostId, element, codeBlockIndex) {
         let codeBlockCopy = generateCodeBlockCopy(element);
         let codeLineAmount = codeBlockCopy.getElementsByTagName('code').length;
         if(isCodeBlockAlreadyReported(soPostId, codeBlockIndex)){
-            console.log("Warning")
-            element.style.userSelect = 'none';
-            element.title = 'To copy this code you need to click on the exclamation mark.';
-            element.style.backgroundColor = "rgba(255,165,0, 0.5)";
-            //unreport
-            triggerButton.innerHTML = '<img src=' + chrome.runtime.getURL('icons/warning_icon.png') + ' />';
-            triggerButton.title = 'See possible security vulnerability';
+            const currentPost = checkPost(soPostId);
+            if(currentPost.codeBlockIndex === codeBlockIndex || currentPost.codeBlockIndex === -1) {
+                element.style.userSelect = 'none';
+                element.title = 'To copy this code you need to click on the exclamation mark.';
+                element.style.backgroundColor = "rgba(255,165,0, 0.5)";
+                //unreport
+                triggerButton.innerHTML = '<img src=' + chrome.runtime.getURL('icons/warning_icon.png') + ' />';
+                triggerButton.title = 'See possible security vulnerability';
 
-            //popupUnreport
-            let descriptionUnreoprt = generateDescription(soPostId, codeBlockIndex);
-            let formUnreport = generateReportForm(soPostId, codeBlockIndex, codeLineAmount, false);
-            markLines(codeBlockCopy, soPostId, codeBlockIndex);
-            popUp = generatePopUp(triggerButton, descriptionUnreoprt, codeBlockCopy, formUnreport);
+                //popupUnreport
+                let descriptionUnreoprt = generateDescription(soPostId, codeBlockIndex);
+                let formUnreport = generateReportForm(soPostId, codeBlockIndex, codeLineAmount, false);
+                markLines(codeBlockCopy, soPostId, codeBlockIndex);
+                popUp = generatePopUp(triggerButton, descriptionUnreoprt, codeBlockCopy, formUnreport);
+            } else {
+                popUp = document.createElement('div');
+            }
         }else{
-            console.log("Not reported")
             //report
             triggerButton.innerHTML = '<img src=' + chrome.runtime.getURL('icons/option_icon.png') + ' />';
             triggerButton.title = 'Report this answer.';
@@ -162,7 +167,7 @@ function generateDescription(soPostId, codeBlockIndex) {
 
     if(isCodeBlockAlreadyReported(soPostId, codeBlockIndex)){
         container.append(title);
-        content.innerText = checkPost(soPostId, codeBlockIndex).reason;
+        content.innerText = checkPost(soPostId).reason;
     }else{
         content.innerText = 'This code didn\'t get reported yet. It is probably safe to use.';
     }
@@ -277,8 +282,7 @@ function generateReportForm(soPostId, codeBlockIndex, codeLineAmount, isReport) 
     lineInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
     form.addEventListener('submit', function (event) {
         event.preventDefault();
-        handelCodeReport(form, submitButton);
-        console.log(getLineList(lineInput.value));
+        handleCodeReport(form, submitButton, codeBlockIndex);
     });
 
     return form;
@@ -356,14 +360,14 @@ function getCodeLineValidation(input, lineAmount) {
 }
 
 function markLines(codeBlock, soPostId, codeBlockIndex){
-    post = checkPost(soPostId, codeBlockIndex)
+    let post = checkPost(soPostId);
     if(post.rows) {
         let rows = getLineList(post.rows)
         let htmlRows = codeBlock.getElementsByTagName('code');
 
-        /*for(index = 0; index < rows.length; index++){
+        for(let index = 0; index < rows.length; index++){
             htmlRows.item(rows[index]-1).classList.add('sa_marked');
-        }*/
+        }
     }
 }
 
@@ -394,13 +398,12 @@ function getLineList(input) {
     return values;
 }
 
-function getToken(){
-    let tokenPromise = new Promise((resolve, reject) =>{
-        chrome.runtime.sendMessage({command: "setToken"}, function(response){
-            resolve(response.token);
-        });
+function getBearer(){
+    return new Promise(function (resolve, reject) {
+        chrome.runtime.sendMessage("getCookie", function(bearer){
+            resolve(bearer.secadvisor);
+        })
     });
-    return tokenPromise;
 }
 
 /**
@@ -410,31 +413,26 @@ function getToken(){
 * @param data ,die den User eingibt
 * @returns response.json()
 */
-function postData(url, data = {}) {
-    return getToken().then(token => {
-        console.log("Post_Data got token: "+token)
-        fetch(url, {
-            method: 'POST',
-            mode: 'cors', //no-cors lässt nur einen begrenzten Headern in dem request zu
-            cache: 'no-cache', //URL auf demselben Ursprung wie das aufrufende Skript befindet
-            credentials: 'same-origin',//URL auf demselben Ursprung wie das aufrufende Skript befindet
-            headers: {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Credentials": true,
-                'Authorization': 'Bearer ' + token,
-                'Content-Type': 'application/json'
-            },
-            redirect: 'follow',
-            referrerPolicy: 'no-referrer',
-    
-            body: JSON.stringify(data) // body data-type muss mit dem headers "Content-Type" übereinstimmen
-        }).then(response => {
-            response.json();
-            console.log("Post_Data fetched: "+JSON.stringify(response));
-        })
-        .catch(error => {
-            console.error('Error:', error);
-        });
+async function postData(url, data = {}) {
+    let bearer = await getBearer();
+    return fetch(url, {
+        method: 'POST',
+        mode: 'cors', //no-cors lässt nur einen begrenzten Headern in dem request zu
+        cache: 'no-cache', //URL auf demselben Ursprung wie das aufrufende Skript befindet
+        credentials: 'same-origin',//URL auf demselben Ursprung wie das aufrufende Skript befindet
+        headers: {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Credentials": true,
+            'Authorization': 'Bearer ' + bearer,
+            'Content-Type': 'application/json'
+        },
+        redirect: 'follow',
+        referrerPolicy: 'no-referrer',
+
+        body: JSON.stringify(data) // body data-type muss mit dem headers "Content-Type" übereinstimmen
+    }).then(response => response.json())
+    .catch(error => {
+        console.error('Error:', error);
     });
 }
 
@@ -444,28 +442,30 @@ function postData(url, data = {}) {
 * zu speichern und am ende die postData methode aufzurufen
 * @param form das ist das reason-bobup
 */
-function handelCodeReport(form, button) {
+async function handleCodeReport(form, button, codeBlockIndex) {
     //test https://stackoverflow.com/questions/9572795/convert-list-to-array-in-java?
 
     button.classList.add('sa_btn_loading');
     var reason = {
         "soPostId": form.getAttribute('Answerid'),
         "reason": form['reason'].value,
-        "codeBlockIndex": form['codeline'].value,
+        "rows": form['codeline'].value,
+        "codeBlockIndex": codeBlockIndex,
         "type": form['type'].value
     };
 
-    console.log("Reason:", reason)
     //die reason-Daten an postData methode geben
-    postData(baseURL + '/request', reason)
-        .then(data => {
-            console.log("Request Data:", data);
-            button.classList.add('sa_successStatus')
-        })
-        .catch(error => {
-            button.classList.add('sa_failureStatus') 
-        });
-    button.classList.remove('sa_btn_loading') 
+    bearer = await getBearer();
+    if(bearer && Object.keys(bearer).length !== 0){
+        postData(baseURL + '/request', reason)
+            .then(data => {
+                button.classList.add('sa_successStatus')
+            })
+            .catch(error => {
+                button.classList.add('sa_failureStatus') 
+            });
+        button.classList.remove('sa_btn_loading') 
+    }
 }
 
 /**

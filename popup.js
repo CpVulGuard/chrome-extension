@@ -1,4 +1,3 @@
-console.log('Started PopUp');
 let loginForm = document.forms["loginForm"];
 loginForm.addEventListener('submit', (event) => {
     handleLoginForm(event);
@@ -10,21 +9,19 @@ logOutLink.addEventListener('click', (event) => {
 });
 
 document.getElementById("forgot-password-link").addEventListener('click', () => {
-    chrome.tabs.create({active: true, url: "https://secadvisor.dev/forgot-password"});
+    chrome.tabs.create({active: true, url: "https://cpvulguard.it-sec.medien.hs-duesseldorf.de/forgot-password"});
 });
 
 document.getElementById("register-link").addEventListener('click', () => {
-    chrome.tabs.create({active: true, url: "https://secadvisor.dev/register"});
+    chrome.tabs.create({active: true, url: "https://cpvulguard.it-sec.medien.hs-duesseldorf.de/register"});
 });
 
 displayStatus();
 
+
 function displayStatus(){
-    console.log("Starting displaying status");
-    chrome.runtime.sendMessage({command: "getToken"}, function(response) {
-        console.log('Token Response:'+JSON.stringify(response))
-        let token = response.token;
-        if(token){
+    chrome.runtime.sendMessage("getCookie", function(bearer){
+        if(bearer && Object.keys(bearer).length !== 0){
             loginForm.classList.add('invisible');
             logInStatus.classList.remove('invisible');
             logOutLink.classList.remove('invisible');
@@ -33,14 +30,14 @@ function displayStatus(){
             logInStatus.classList.add('invisible');
             logOutLink.classList.add('invisible');
         }
-      });
+    });
 }
 
 function handleLoginForm(event) {
     event.preventDefault();
     loginForm['submitButton'].classList.add('btn_loading');
 
-    login('https://secadvisor.dev/token',{
+    login('https://cpvulguard.it-sec.medien.hs-duesseldorf.de/token',{
         "email": loginForm['email'].value,
         "password": loginForm['pass'].value
     })
@@ -48,36 +45,26 @@ function handleLoginForm(event) {
 
 function logOut(event) {
     event.preventDefault();
-    chrome.runtime.sendMessage({command: "deleteToken"}, function(){
+    chrome.storage.local.remove(['secadvisor'], function(resp){
+        loginForm['submitButton'].classList.remove('btn_loading');
         displayStatus();
     });
 }
 
 function login(url, credentials) {
-    console.log("Starting Login");
     fetch(url, {
         method: 'POST',
         mode: 'cors',
         cache: 'no-cache',
         body: new URLSearchParams((credentials)),
     })
-        .then(response => response.json())
-        .then(data => {
-            console.log("Login fetched data: "+JSON.stringify(data));
-            chrome.cookies.set({
-                "name": "Bearer",
-                "url": "https://secadvisor.dev",
-                "value": data.access_token,
-                "sameSite": "lax"
-            }, function(){
-                console.log("Sending data to backend");
-                chrome.runtime.sendMessage({command: "setToken"}, function(){
-                    loginForm['submitButton'].classList.remove('btn_loading');
-                    displayStatus();
-                });
-            });
-        })
-        .catch(error => {
-            console.error('Error:', error);
-        });
+    .then(response => response.json())
+    .then(data => {
+        chrome.storage.local.set({"secadvisor": data.access_token});
+        displayStatus();
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+    
 }

@@ -1,4 +1,3 @@
-console.log('Started background.js');
 init();
 
 
@@ -8,48 +7,20 @@ init();
 function init(){
     chrome.tabs.onUpdated.addListener(function(tabId,info, tab) {
         if (info.status == "complete") {
-           console.log("Info:", info, tabId, tab)
            if(isOnStackOverflow(tab.url)){
                 loadForeground(tabId)
            }
         }
     });
 
-    //Skripte wollen den LogIn-Token erhalten
-    chrome.runtime.onMessage.addListener(
-        function(request, sender, sendResponse) {
-            console.log((sender.tab ?
-                "from a content script:" + sender.tab.url :
-                "from the extension")+"\n"+"Command: "+request.command);
-
-            if (request.command === "getToken"){
-                chrome.storage.local.get(['token'], function(token){
-                    console.log("Loaded token from storage: "+JSON.stringify(token));
-                    sendResponse(token);
-                });
-            }
-            else if(request.command === "setToken"){
-                chrome.cookies.get({"url": "https://secadvisor.dev", "name": "Bearer"}, function(cookie){
-                    let response = {token: ""};
-                    if(cookie){
-                        response.token = cookie.value;
-                        chrome.storage.local.set({"token": response.token});
-                    }
-                    console.log("Loaded token in storage: "+JSON.stringify(response))
-                    sendResponse(response);
-                });
-            }
-            else if(request.command === "deleteToken"){
-                chrome.cookies.remove({"url": "https://secadvisor.dev", "name": "Bearer"}, function(){
-                    let response = {token: ""};
-                    chrome.storage.local.set({"token": response.token});
-                    console.log("Deleted Token. Token in Storage: "+JSON.stringify(response))
-                    sendResponse(response);
-                });
-            }
-            return true;
+    chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+        if(request === "getCookie") {
+            chrome.storage.local.get(['secadvisor'], function(token){
+                sendResponse(token);
+            });
         }
-      );
+        return true;
+    });
 }
 
 /**
@@ -73,5 +44,4 @@ function loadForeground(tabId){
         files: ['./stylesheets/custom.css'],
         target: {tabId: tabId}
     });
-    console.log('brakgound starts foreground');
 }
