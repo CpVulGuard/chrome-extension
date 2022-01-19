@@ -1,4 +1,4 @@
-# Security Advisor Chrome Extension
+# CpVulGuard Chrome Extension
 ## Instructions
 1. Visit [https://developer.chrome.com/docs/extensions/mv3/getstarted/#manifest](https://developer.chrome.com/docs/extensions/mv3/getstarted/#manifest)
 to follow the instructions to load an unpacked extension in Google chrome.
