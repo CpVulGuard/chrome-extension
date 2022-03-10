@@ -1,18 +1,18 @@
 {
-    "name": "Security Advisor",
-    "description": "This extension let's you report security-vulnerabilities in StackOverflow-code and warns you if other people already reported the code you are looking at.",
-    "version": "0.1.0",
+    "name": "CopyPastaVulGuard",
+    "description": "CpVulGuard is a research prototype Chrome browser extension to mark vulnerable source code on Stack Overflow.",
+    "version": "1.0.1",
     "manifest_version": 3,
     "icons": {
-        "16": "./icons/security_advisor-16x16.png",
-        "32": "./icons/security_advisor-32x32.png",
-        "48": "./icons/security_advisor-48x48.png",
-        "128": "./icons/security_advisor-128x128.png"
+        "16": "./icons/copypastavulguard-16x16.png",
+        "32": "./icons/copypastavulguard-32x32.png",
+        "48": "./icons/copypastavulguard-48x48.png",
+        "128": "./icons/copypastavulguard-128x128.png"
     },
     "web_accessible_resources": [
         {
             "resources": [
-                "icons/security_advisor-32x32.png",
+                "icons/copypastavulguard-32x32.png",
                 "icons/report.png",
                 "icons/option_icon.png",
                 "icons/warning_icon.png",

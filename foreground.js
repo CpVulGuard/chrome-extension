@@ -11,7 +11,9 @@ async function startForeground() {
     var answers = [];
     var elements = document.getElementsByTagName('*');
     for (i = 0; i < elements.length; i++) {
-        if (answerCodition.test(elements[i].id) && elements[i].getAttribute('data-answerid') != null) {
+        if (answerCodition.test(elements[i].id) && (
+            elements[i].getAttribute('data-answerid') != null ||
+            elements[i].getAttribute('data-questionid') != null)) {
             answers.push(elements[i]);
         }
     }
@@ -19,7 +21,12 @@ async function startForeground() {
     //Get DataBaseReport
     let idList = [];
     for (index = 0; index < answers.length; index++) {
-        let id = answers[index].getAttribute('data-answerid');
+        let id;
+        if(answers[index].getAttribute('data-answerid') != null){
+            id = answers[index].getAttribute('data-answerid');
+        }else{
+            id = answers[index].getAttribute('data-questionid');
+        }
         idList.push(id);
     }
     bearer = await getBearer();
@@ -30,7 +37,12 @@ async function startForeground() {
                 //Add Interactions
                 for (answerIndex = 0; answerIndex < answers.length; answerIndex++) {
                     let codeBlocks = answers[answerIndex].getElementsByTagName('pre');
-                    let id = answers[answerIndex].getAttribute('data-answerid');
+                    let id;
+                    if(answers[answerIndex].getAttribute('data-answerid') != null){
+                        id = answers[answerIndex].getAttribute('data-answerid');
+                    }else{
+                        id = answers[answerIndex].getAttribute('data-questionid');
+                    }
                     for (var blockIndex = 0; blockIndex < codeBlocks.length; blockIndex++) {
                         addIteractionToAnswer(id, codeBlocks[blockIndex], blockIndex);
                     }
