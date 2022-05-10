@@ -7,13 +7,10 @@ startForeground();
  * Start den Prozess für die Manuipulation der Website
  */
 async function startForeground() {
-    var answerCodition = /^answer/;
     var answers = [];
     var elements = document.getElementsByTagName('*');
     for (i = 0; i < elements.length; i++) {
-        if (answerCodition.test(elements[i].id) && (
-            elements[i].getAttribute('data-answerid') != null ||
-            elements[i].getAttribute('data-questionid') != null)) {
+        if (elements[i].getAttribute('data-answerid') != null || elements[i].getAttribute('data-questionid') != null) {
             answers.push(elements[i]);
         }
     }
