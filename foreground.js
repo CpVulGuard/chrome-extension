@@ -1,7 +1,34 @@
-let reportedPosts = [];
-let baseURL = "https://cpvulguard.it-sec.medien.hs-duesseldorf.de";
-startForeground();
+let baseUrl;
+chrome.storage.sync.get({
+    localServer: false,
+}, function(items) {
+    baseUrl = items.localServer ? 'http://localhost:8000/' : 'https://cpvulguard.it-sec.medien.hs-duesseldorf.de/';
+    startForeground();
+});
 
+async function retrieveRegexList() {
+    let request = new Request(baseUrl + 'queries', {
+        method: 'GET',
+        mode: 'cors',
+        cache: 'no-cache',
+        credentials: 'same-origin',
+        redirect: 'follow',
+        referrerPolicy: 'no-referrer',
+        headers: new Headers({
+            'Accept': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': 'true',
+            'Authorization': 'Bearer ' + await getBearer()
+        })
+    });
+    return fetch(request).then(response => response.json())
+        .catch(error => {
+            console.error('Error:', error);
+        });
+}
+
+let reportedPosts;
+let unreportedPosts;
 
 /**
  * Start den Prozess für die Manuipulation der Website
@@ -26,13 +53,17 @@ async function startForeground() {
         }
         idList.push(id);
     }
-    bearer = await getBearer();
+
+    const regexList = await retrieveRegexList();
+
+    const bearer = await getBearer();
     if(bearer && Object.keys(bearer).length !== 0){
-        postData(baseURL + '/check', {"ids":idList})
+        postData(baseUrl + 'check', {"ids":idList})
             .then(data => {
-                reportedPosts = data;
+                reportedPosts = data.reportedPosts;
+                unreportedPosts = new Set(data.unreportedPosts);
                 //Add Interactions
-                for (answerIndex = 0; answerIndex < answers.length; answerIndex++) {
+                for (let answerIndex = 0; answerIndex < answers.length; answerIndex++) {
                     let codeBlocks = answers[answerIndex].getElementsByTagName('pre');
                     let id;
                     if(answers[answerIndex].getAttribute('data-answerid') != null){
@@ -40,7 +71,10 @@ async function startForeground() {
                     }else{
                         id = answers[answerIndex].getAttribute('data-questionid');
                     }
-                    for (var blockIndex = 0; blockIndex < codeBlocks.length; blockIndex++) {
+                    for (let blockIndex = 0; blockIndex < codeBlocks.length; blockIndex++) {
+                        runRealTimeAnalysis(id, codeBlocks[blockIndex], blockIndex, regexList);
+                    }
+                    for (let blockIndex = 0; blockIndex < codeBlocks.length; blockIndex++) {
                         addIteractionToAnswer(id, codeBlocks[blockIndex], blockIndex);
                     }
                 }
@@ -50,19 +84,23 @@ async function startForeground() {
 
 /**
  * Gibt den Datenbankeintrag für einen bestimmten CodeBlock an
- * @param {Integer} soPostId 
+ * @param {String} soPostId
  * @param {Integer} codeBlockIndex 
  * @returns den Eintrag als {reason, soPostId, imported, codeBlockIndex, rows}. Der eintrag ist {} wenn nicht vorhanden.
  */
-function checkPost(soPostId) {
-    foundReport = {}
-    reportedPosts.forEach((post) => {
-        if(post.soPostId == soPostId){
-            foundReport = post
+function checkPost(soPostId, codeBlockIndex) {
+    let alt = {};
+    for (const post of reportedPosts) {
+        if(post.soPostId === parseInt(soPostId)) {
+            if (post.codeBlockIndex === codeBlockIndex) {
+                return post;
+            }
+            else if (post.codeBlockIndex === -1) {
+                alt = post;
+            }
         }
-    })
-
-    return foundReport
+    }
+    return alt;
 }
 
 /**
@@ -72,15 +110,51 @@ function checkPost(soPostId) {
  * @returns boolean ob ein Report vorliegt
  */
 function isCodeBlockAlreadyReported(soPostId, codeBlockIndex) {
-    const report = checkPost(soPostId);
+    const report = checkPost(soPostId, codeBlockIndex);
     return (Object.keys(report).length !== 0);
 }
 
 /**
+ * Detects vulnerable code snippets in real time and marks them
+ * @param soPostId post id
+ * @param element code block
+ * @param codeBlockIndex code block index
+ * @param regexList regex list to check
+ */
+function runRealTimeAnalysis(soPostId, element, codeBlockIndex, regexList) {
+    let postId = parseInt(soPostId);
+    if (unreportedPosts.has(postId)) {
+        return;
+    }
+    let htmlContent = element.innerHTML;
+    for (const regexEntry of regexList) {
+        let regex = new RegExp(regexEntry.regex, 'gs');
+        let result = regex.exec(htmlContent);
+        if (result === null) {
+            continue;
+        }
+        // Doppelte Einträge mit fehlenden Codeblock- und Zeilenangaben verwerfen
+        reportedPosts = reportedPosts.filter(
+            entry => entry.soPostId !== postId || (entry.codeBlockIndex !== -1 && entry.codeBlockIndex !== codeBlockIndex)
+        );
+        reportedPosts.push({
+            soPostId: postId,
+            imported: 0,
+            codeBlockIndex: codeBlockIndex,
+            reason: regexEntry.reason,
+            rows: '-1',
+            realTime: true
+        });
+        element.innerHTML = element.innerHTML.replaceAll(regex, `$1<span class="sa_marked">$2</span>$3`)
+    }
+}
+
+/**
  * Fügt einem Codeblock die Inmteraktionsfläsche hinzu
- * @param {Integer} soPostId die Id der Antwort des Codeblocks
+ * @param {String} soPostId die Id der Antwort des Codeblocks
  * @param {HTML-Element} element der Codeblock als HTML-Elemtent
  * @param {Integer} codeBlockIndex der Index des CodeBlocks auf der Seite
+ * @param regexList Liste der regulären Ausdrücke
  */
 function addIteractionToAnswer(soPostId, element, codeBlockIndex) {
         let codeBlockHeader = document.createElement('div');
@@ -89,9 +163,12 @@ function addIteractionToAnswer(soPostId, element, codeBlockIndex) {
         let popUp;
 
         let codeBlockCopy = generateCodeBlockCopy(element);
+        if (!codeBlockCopy) {
+            return;
+        }
         let codeLineAmount = codeBlockCopy.getElementsByTagName('code').length;
         if(isCodeBlockAlreadyReported(soPostId, codeBlockIndex)){
-            const currentPost = checkPost(soPostId);
+            const currentPost = checkPost(soPostId, codeBlockIndex);
             if(currentPost.codeBlockIndex === codeBlockIndex || currentPost.codeBlockIndex === -1) {
                 element.style.userSelect = 'none';
                 element.title = 'To copy this code you need to click on the exclamation mark.';
@@ -102,7 +179,7 @@ function addIteractionToAnswer(soPostId, element, codeBlockIndex) {
 
                 //popupUnreport
                 let descriptionUnreoprt = generateDescription(soPostId, codeBlockIndex);
-                let formUnreport = generateReportForm(soPostId, codeBlockIndex, codeLineAmount, false);
+                let formUnreport = generateReportForm(soPostId, codeBlockIndex, codeLineAmount, false, !!currentPost.realTime);
                 markLines(codeBlockCopy, soPostId, codeBlockIndex);
                 popUp = generatePopUp(triggerButton, descriptionUnreoprt, codeBlockCopy, formUnreport);
             } else {
@@ -115,7 +192,7 @@ function addIteractionToAnswer(soPostId, element, codeBlockIndex) {
 
             //popupReport
             let description = generateDescription(soPostId, codeBlockIndex);
-            let form = generateReportForm(soPostId, codeBlockIndex, codeLineAmount, true);
+            let form = generateReportForm(soPostId, codeBlockIndex, codeLineAmount, true, false);
             popUp = generatePopUp(triggerButton, description, codeBlockCopy, form);
         }
 
@@ -163,7 +240,7 @@ function generatePopUp(trigger, ...inputs) {
 
 /**
  * Generiert die Beschreibung für einen Codeblock
- * @param {Integer} soPostId die ID der Antwort des Codeblocks
+ * @param {String} soPostId die ID der Antwort des Codeblocks
  * @param {Integer} codeBlockIndex der Index des CodeBlocks auf der Seite
  * @returns die Beschreibung als HTML-div-Element
  */
@@ -176,7 +253,7 @@ function generateDescription(soPostId, codeBlockIndex) {
 
     if(isCodeBlockAlreadyReported(soPostId, codeBlockIndex)){
         container.append(title);
-        content.innerText = checkPost(soPostId).reason;
+        content.innerText = checkPost(soPostId, codeBlockIndex).reason;
     }else{
         content.innerText = 'This code didn\'t get reported yet. It is probably safe to use.';
     }
@@ -206,13 +283,13 @@ function createReactionButton(buttonText, successText, failureText){
 
 /**
  * Erstellt ein Formular zum Melden von Code auf Stackoverflow
- * @param {Integer} soPostId die Datenbank-ID des CodeBlocks
+ * @param {String} soPostId die Datenbank-ID des CodeBlocks
  * @param {Integer} codeBlockIndex der Index des CodeBlocks auf der Seite
  * @param {Integer} codeLineAmount die Anzahl von Zeilen im CodeBlock
  * @param {Boolean} isReport gibt an ob ein report oder unreport gesendet wird.
  * @returns das generierte Formular zum melden von CodeBlöcken
  */
-function generateReportForm(soPostId, codeBlockIndex, codeLineAmount, isReport) {
+function generateReportForm(soPostId, codeBlockIndex, codeLineAmount, isReport, realTime) {
     let form = document.createElement('form');
     form.classList.add('sa_popUpForm');
     let formBody = document.createElement('fieldset');
@@ -291,7 +368,7 @@ function generateReportForm(soPostId, codeBlockIndex, codeLineAmount, isReport) 
     lineInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
     form.addEventListener('submit', function (event) {
         event.preventDefault();
-        handleCodeReport(form, submitButton, codeBlockIndex);
+        handleCodeReport(form, submitButton, codeBlockIndex, realTime);
     });
 
     return form;
@@ -369,7 +446,7 @@ function getCodeLineValidation(input, lineAmount) {
 }
 
 function markLines(codeBlock, soPostId, codeBlockIndex){
-    let post = checkPost(soPostId);
+    let post = checkPost(soPostId, codeBlockIndex);
     if(post.rows) {
         let rows = getLineList(post.rows)
         let htmlRows = codeBlock.getElementsByTagName('code');
@@ -409,8 +486,8 @@ function getLineList(input) {
 
 function getBearer(){
     return new Promise(function (resolve, reject) {
-        chrome.runtime.sendMessage("getCookie", function(bearer){
-            resolve(bearer.secadvisor);
+        chrome.runtime.sendMessage({name: 'getCookie', sessionKey: btoa(baseUrl) }, function(bearer){
+            resolve(bearer[`secadvisor${btoa(baseUrl)}`]);
         })
     });
 }
@@ -431,7 +508,7 @@ async function postData(url, data = {}) {
         credentials: 'same-origin',//URL auf demselben Ursprung wie das aufrufende Skript befindet
         headers: {
             "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Credentials": true,
+            "Access-Control-Allow-Credentials": 'true',
             'Authorization': 'Bearer ' + bearer,
             'Content-Type': 'application/json'
         },
@@ -451,7 +528,7 @@ async function postData(url, data = {}) {
 * zu speichern und am ende die postData methode aufzurufen
 * @param form das ist das reason-bobup
 */
-async function handleCodeReport(form, button, codeBlockIndex) {
+async function handleCodeReport(form, button, codeBlockIndex, realTime) {
     //test https://stackoverflow.com/questions/9572795/convert-list-to-array-in-java?
 
     button.classList.add('sa_btn_loading');
@@ -460,13 +537,14 @@ async function handleCodeReport(form, button, codeBlockIndex) {
         "reason": form['reason'].value,
         "rows": form['codeline'].value,
         "codeBlockIndex": codeBlockIndex,
-        "type": form['type'].value
+        "type": form['type'].value,
+        "realTime": realTime,
     };
 
     //die reason-Daten an postData methode geben
     bearer = await getBearer();
     if(bearer && Object.keys(bearer).length !== 0){
-        postData(baseURL + '/request', reason)
+        postData(baseUrl + 'request', reason)
             .then(data => {
                 button.classList.add('sa_successStatus')
             })
@@ -489,10 +567,14 @@ function generateCodeBlockCopy(codeBlock) {
     if (!classes.contains('s-code-block')) {
         classes.add('s-code-block');
     }
-    let splitted = codeBlock.getElementsByTagName('code')[0].innerHTML.split('\n');
-    for (index = 0; index < splitted.length - 1; index++) {
+    // Note that codeBlock.getElementsByTagName('code')[0] can be null
+    let split = codeBlock.getElementsByTagName('code')[0]?.innerHTML.split('\n');
+    if (!split) {
+        return;
+    }
+    for (let index = 0; index < split.length - 1; index++) {
         let line = document.createElement('code');
-        line.innerHTML = splitted[index];
+        line.innerHTML = split[index];
         copy.appendChild(line);
         copy.appendChild(document.createElement('br'));
     }

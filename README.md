@@ -4,3 +4,4 @@
 to follow the instructions to load an unpacked extension in Google chrome.
 2. Register an account at: [https://cpvulguard.it-sec.medien.hs-duesseldorf.de/register](https://cpvulguard.it-sec.medien.hs-duesseldorf.de/register)
 3. Login via the popup menu of the chrome extension.
+

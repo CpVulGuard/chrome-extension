@@ -1,6 +1,5 @@
 init();
 
-
 /**
  * Fügt der Extension die benötigten Listener hinzu
  */
@@ -14,8 +13,8 @@ function init(){
     });
 
     chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-        if(request === "getCookie") {
-            chrome.storage.local.get(['secadvisor'], function(token){
+        if(request.name === "getCookie") {
+            chrome.storage.local.get([`secadvisor${request.sessionKey}`], function(token){
                 sendResponse(token);
             });
         }
