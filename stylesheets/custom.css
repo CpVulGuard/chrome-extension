@@ -206,3 +206,19 @@ button.sa_failureStatus .sa_failText{
       transform: rotate(1turn);
     }
   }
+
+
+  .checkCodeBtn {
+    background-color: rgb(232, 232, 34);
+    color: #000000;
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+  }
+  
+  .checkCodeBtn:hover {
+    background-color: rgb(156, 156, 24);
+    box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+  }

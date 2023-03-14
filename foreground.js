@@ -29,12 +29,15 @@ async function retrieveRegexList() {
 
 let reportedPosts;
 let unreportedPosts;
+let askQuestionURL="https://stackoverflow.com/questions/ask"
 
 /**
  * Start den Prozess für die Manuipulation der Website
  */
 async function startForeground() {
+    var currentLocation = window.location.href;
     var answers = [];
+    var countResults;
     var elements = document.getElementsByTagName('*');
     for (i = 0; i < elements.length; i++) {
         if (elements[i].getAttribute('data-answerid') != null || elements[i].getAttribute('data-questionid') != null) {
@@ -55,7 +58,6 @@ async function startForeground() {
     }
 
     const regexList = await retrieveRegexList();
-
     const bearer = await getBearer();
     if(bearer && Object.keys(bearer).length !== 0){
         postData(baseUrl + 'check', {"ids":idList})
@@ -63,20 +65,70 @@ async function startForeground() {
                 reportedPosts = data.reportedPosts;
                 unreportedPosts = new Set(data.unreportedPosts);
                 //Add Interactions
-                for (let answerIndex = 0; answerIndex < answers.length; answerIndex++) {
-                    let codeBlocks = answers[answerIndex].getElementsByTagName('pre');
-                    let id;
-                    if(answers[answerIndex].getAttribute('data-answerid') != null){
-                        id = answers[answerIndex].getAttribute('data-answerid');
-                    }else{
-                        id = answers[answerIndex].getAttribute('data-questionid');
-                    }
-                    for (let blockIndex = 0; blockIndex < codeBlocks.length; blockIndex++) {
-                        runRealTimeAnalysis(id, codeBlocks[blockIndex], blockIndex, regexList);
-                    }
-                    for (let blockIndex = 0; blockIndex < codeBlocks.length; blockIndex++) {
-                        addIteractionToAnswer(id, codeBlocks[blockIndex], blockIndex);
-                    }
+
+                //Analysis while asking a question 
+                if(currentLocation==askQuestionURL){
+                  let questionPreviewBlocks = document.getElementsByClassName('s-prose py16 js-md-preview');
+                  setInterval(function() {
+                      for (let i = 0; i < questionPreviewBlocks.length; i++) {
+                         runRealTimeAnalysis("question", questionPreviewBlocks[i], i, regexList); 
+                       }
+                      
+                  },1000);
+
+                    let checkCodeBtn = createCheckCodeButton();
+                    var postButton = document.getElementById('submit-button');
+                    adjustCheckCodeBtnPosition(postButton,checkCodeBtn,120,1);
+
+                    setInterval(function() {
+                        adjustCheckCodeBtnPosition(postButton,checkCodeBtn,120,1);
+                      }, 100);
+
+                      postButton.disabled = true;
+                      checkCodeBtn.addEventListener('click', function() {
+                        postButton.disabled = false;
+                      });
+                }
+                else {
+                    
+                    //real time anaylsis while posting an answer 
+                    //checks the code every second 
+                    let answerPreviewBlock = document.getElementsByTagName("pre");
+                    setInterval(function() {
+                        for (let i = 0; i < answerPreviewBlock.length; i++) {
+                           countResults=runRealTimeAnalysis("answer", answerPreviewBlock[i], i, regexList);                    
+                         }
+                    },1000);
+
+
+                    let checkCodeBtn = createCheckCodeButton();
+                    var postButton = document.getElementById('submit-button');
+                    adjustCheckCodeBtnPosition(postButton,checkCodeBtn,10,1);
+
+                    setInterval(function() {
+                        adjustCheckCodeBtnPosition(postButton,checkCodeBtn,10,1);
+                      }, 100);
+
+                      postButton.disabled = true;
+                      checkCodeBtn.addEventListener('click', function() {
+                        postButton.disabled = false;
+                      });
+ 
+                    for (let answerIndex = 0; answerIndex < answers.length; answerIndex++) {
+                        let codeBlocks = answers[answerIndex].getElementsByTagName('pre');
+                        let id;
+                        if(answers[answerIndex].getAttribute('data-answerid') != null){
+                            id = answers[answerIndex].getAttribute('data-answerid');
+                        }else{
+                            id = answers[answerIndex].getAttribute('data-questionid');
+                        }
+                        for (let blockIndex = 0; blockIndex < codeBlocks.length; blockIndex++) {
+                            runRealTimeAnalysis(id, codeBlocks[blockIndex], blockIndex, regexList);
+                        }
+                        for (let blockIndex = 0; blockIndex < codeBlocks.length; blockIndex++) {
+                            addIteractionToAnswer(id, codeBlocks[blockIndex], blockIndex);
+                        }
+                    } 
                 }
         });
     }
@@ -122,35 +174,47 @@ function isCodeBlockAlreadyReported(soPostId, codeBlockIndex) {
  * @param regexList regex list to check
  */
 function runRealTimeAnalysis(soPostId, element, codeBlockIndex, regexList) {
-    let postId = parseInt(soPostId);
+    let postId;
+    //handles postId if its a question or a existing post
+    if(soPostId!="question" || soPostId!="answer"){
+        postId = parseInt(soPostId);
+    }
+    else{
+        postId=String(soPostId);
+    }
+
     if (unreportedPosts.has(postId)) {
         return;
     }
+
     let htmlContent = element.innerHTML;
     for (const regexEntry of regexList) {
         let regex = new RegExp(regexEntry.regex, 'gs');
         let result = regex.exec(htmlContent);
+       
         if (result === null) {
             continue;
         }
-        // Doppelte Einträge mit fehlenden Codeblock- und Zeilenangaben verwerfen
-        reportedPosts = reportedPosts.filter(
-            entry => entry.soPostId !== postId || (entry.codeBlockIndex !== -1 && entry.codeBlockIndex !== codeBlockIndex)
-        );
-        reportedPosts.push({
-            soPostId: postId,
-            imported: 0,
-            codeBlockIndex: codeBlockIndex,
-            reason: regexEntry.reason,
-            rows: '-1',
-            realTime: true
-        });
-        element.innerHTML = element.innerHTML.replaceAll(regex, `$1<span class="sa_marked">$2</span>$3`)
+            
+        if(postId!="question"){
+            // Doppelte Einträge mit fehlenden Codeblock- und Zeilenangaben verwerfen
+            reportedPosts = reportedPosts.filter(
+                entry => entry.soPostId !== postId || (entry.codeBlockIndex !== -1 && entry.codeBlockIndex !== codeBlockIndex)
+            );
+            reportedPosts.push({
+                soPostId: postId,
+                imported: 0,
+                codeBlockIndex: codeBlockIndex,
+                reason: regexEntry.reason,
+                rows: '-1',
+                realTime: true
+            });
+        }
+       element.innerHTML = element.innerHTML.replaceAll(regex, `$1<span class="sa_marked" title="` + regexEntry.reason + `">$2</span>$3`)
     }
 }
-
 /**
- * Fügt einem Codeblock die Inmteraktionsfläsche hinzu
+ * Fügt einem Codeblock die Interaktionsfläsche hinzu
  * @param {String} soPostId die Id der Antwort des Codeblocks
  * @param {HTML-Element} element der Codeblock als HTML-Elemtent
  * @param {Integer} codeBlockIndex der Index des CodeBlocks auf der Seite
@@ -248,16 +312,24 @@ function generateDescription(soPostId, codeBlockIndex) {
     let container = document.createElement('div');
     let content = document.createElement('p');
     let title = document.createElement('h1');
-    title.innerText = 'Reason:'
-    container.classList.add('sa_discriptionContent');
 
-    if(isCodeBlockAlreadyReported(soPostId, codeBlockIndex)){
-        container.append(title);
-        content.innerText = checkPost(soPostId, codeBlockIndex).reason;
-    }else{
-        content.innerText = 'This code didn\'t get reported yet. It is probably safe to use.';
+    if((soPostId =="question" || soPostId =="answer") && codeBlockIndex==0){
+        container.classList.add('sa_discriptionContent');
+        content.innerText = 'Your code has vulnerabilities, are you sure you want to submit?';
+        container.append(content);
     }
-    container.append(content);
+    else{
+        title.innerText = 'Reason:'
+        container.classList.add('sa_discriptionContent');
+
+        if(isCodeBlockAlreadyReported(soPostId, codeBlockIndex)){
+            container.append(title);
+            content.innerText = checkPost(soPostId, codeBlockIndex).reason;
+        }else{
+            content.innerText = 'This code didn\'t get reported yet. It is probably safe to use.';
+        }
+        container.append(content);
+    }
     return container;
 }
 
@@ -595,3 +667,38 @@ function toggelDescription(element) {
         element.style.display = "none";
     }
 }
+
+/**
+* creates a button for the asking page
+ */
+function createCheckCodeButton(){
+
+    let checkCodeBtn = document.createElement('button');
+    checkCodeBtn.id = 'checkCodeBtn';
+    checkCodeBtn.textContent = 'Check Code';
+    checkCodeBtn.classList.add('checkCodeBtn');
+    document.body.appendChild(checkCodeBtn);
+
+    return checkCodeBtn;
+}
+
+/**
+ * As the site loads at new elements appear, the button from the extension is not always next to the post question button
+ * this function automaticly adjusts the position
+ * @param postQuestionButton button at the asking page
+ * @param checkCodeBtn buttom from the extension
+ * @param horizontalPadding horizonzal padding
+ * @param top vertical position
+ */
+function adjustCheckCodeBtnPosition(postQuestionButton,checkCodeBtn,horizontalPadding,top){
+                
+    //Get the position and dimensions of the "Post Your Question" button
+    var postButtonRect = postQuestionButton.getBoundingClientRect();
+  
+    var checkCodeBtnX = window.pageXOffset + postButtonRect.right + horizontalPadding; //add 10 pixels of horizontal padding
+    var checkCodeBtnY = window.pageYOffset + postButtonRect.top + top; //use the same vertical position as the "Post Question" Button
+
+    checkCodeBtn.style.position = 'absolute';
+    checkCodeBtn.style.left = checkCodeBtnX + 'px';
+    checkCodeBtn.style.top = checkCodeBtnY + 'px';
+    }
